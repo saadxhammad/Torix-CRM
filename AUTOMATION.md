@@ -1,0 +1,9 @@
+# Torix Solutions daily maintenance
+
+This existing Site remains owner-private. `/api/maintenance` is a server writer protected by the Site gateway. Signed-in calls additionally require company settings permission. Anonymous service requests can run only through the platform's supported private Site service authorization. Do not make the Site public without first replacing this service boundary with explicit application authentication.
+
+The writer uses the configured verified owner ID, the shared live workspace and its stored approved contract settings. It generates due invoice and bill drafts, cycle tasks, approved depreciation/prepaid schedule postings, and a dated JSON backup in private object storage. Percentage based Medical Billing fees require a reviewed fee period and evidence for each cycle. Generated drafts still need approval and issuance. No salary payments, vendor payments or external communications are automated.
+
+To run: refresh `get_site` for this exact Site, confirm owner-private access, obtain its returned supported service access credential and POST to its own `/api/maintenance` using `OAI-Sites-Authorization: Bearer ...`. The gateway consumes this credential and supplies no visitor identity. Never save the credential in source, task text, files or logs. Treat a non-2xx response as failure. Inspect the returned status and per-record errors. Repeat safely after conflicts: source occurrence keys, operation IDs and daily backup checks prevent duplicate business postings. Read back the returned backup ID from the live records table using the native database viewer to verify persistence when testing a changed writer.
+
+Do not rebuild or republish for routine daily runs. Never substitute workspace IDs, authentication headers or owner identities. TORIX_OWNER_EMAIL and TORIX_OWNER_ID are hosted secrets configured from the verified owner and existing workspace records. Staff memberships do not broaden the Site visitor allowlist.
