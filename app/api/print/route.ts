@@ -1,3 +1,4 @@
+export const runtime = "nodejs";
 import {PDFDocument,StandardFonts,rgb} from 'pdf-lib';
 import {context,record,checkScope,today} from '@/lib/server';
 import {reports} from '@/lib/reports.mjs';

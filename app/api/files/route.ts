@@ -1,3 +1,4 @@
+export const runtime = "nodejs";
 import {context,bucket,record,Change,clean,checkScope,assertOrigin} from '@/lib/server';
 import {can,requireCap} from '@/lib/access.mjs';
 export const dynamic='force-dynamic';

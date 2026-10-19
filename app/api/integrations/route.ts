@@ -1,3 +1,4 @@
+export const runtime = "nodejs";
 import {context,Change,record,clean,today,assertOrigin} from '@/lib/server';
 import {requireCap} from '@/lib/access.mjs';
 import {commitImport} from '@/lib/maintenance';

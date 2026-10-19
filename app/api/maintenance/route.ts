@@ -1,3 +1,4 @@
+export const runtime = "nodejs";
 import {getChatGPTUser} from '@/app/chatgpt-auth';
 import {context,assertOrigin} from '@/lib/server';
 import {requireCap} from '@/lib/access.mjs';

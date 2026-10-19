@@ -1,74 +1,41 @@
-# Deploy Torix CRM
+# Deploy Torix CRM (Supabase + Vercel)
 
-## Important: this is not a drop-in Vercel app
+Internal company tool. Data lives in **Supabase**. App runs on **Vercel**.
 
-This codebase targets **Cloudflare Workers** with:
+## 1. Create Supabase project
 
-- **D1** (SQLite) as `DB`
-- **R2** object storage as `BUCKET`
-- Vinext/Sites auth headers (`oai-authenticated-user-*`)
-- `wrangler` local/runtime bindings
+1. Go to [supabase.com](https://supabase.com) → New project  
+2. SQL Editor → paste and run `supabase/schema.sql`  
+3. Storage → New bucket → name **`torix-files`** → **Private**  
+4. Copy from Project Settings:
+   - Database → Connection string (URI) → `DATABASE_URL`
+   - API → Project URL + `anon` + `service_role` keys
 
-A normal **Vercel → Import Git repo → Deploy** flow will fail or run without a working database, file storage, or login.
-
----
-
-## Option A — Recommended: Cloudflare Workers
-
-1. Push this repo (already on GitHub).
-2. Create a Cloudflare account and install Wrangler:
-   ```sh
-   npm i -g wrangler
-   wrangler login
-   ```
-3. Create production resources:
-   ```sh
-   wrangler d1 create torix-crm
-   wrangler r2 bucket create torix-crm-files
-   ```
-4. Put the real `database_id` and bucket name into a production Wrangler config (do not use the local placeholder IDs in `wrangler.local.jsonc` for production).
-5. Apply migrations to remote D1:
-   ```sh
-   wrangler d1 migrations apply DB --remote --config wrangler.jsonc
-   ```
-6. Set secrets (owner identity + any service tokens):
-   ```sh
-   wrangler secret put TORIX_OWNER_EMAIL
-   wrangler secret put TORIX_OWNER_ID
-   ```
-7. Replace Sites/ChatGPT sign-in (`app/chatgpt-auth.ts`) with your own auth (Auth.js, Clerk, Cloudflare Access, etc.) before public use. The local `/signin-with-chatgpt` helper only works in the Vinext/Sites local gateway.
-8. Build and deploy with the project’s Cloudflare/Vinext pipeline (`pnpm build`, then the Worker deploy path documented in `DEVELOPER_HANDOVER.md`).
-
----
-
-## Option B — Vercel (only after a platform migration)
-
-Vercel can host the **UI**, but you must rewrite the platform pieces first:
-
-| Current (Cloudflare) | Needed on Vercel |
-| --- | --- |
-| D1 | Postgres (Neon / Supabase / Vercel Postgres) + Drizzle adapter changes |
-| R2 | Vercel Blob / S3 / Supabase Storage |
-| Worker bindings `env.DB` / `env.BUCKET` | Node/Edge runtime env + SDK clients |
-| Sites auth headers | NextAuth / Clerk / Auth.js session cookies |
-| Vinext + Wrangler build | Standard Next.js App Router on Node |
-
-High-level Vercel steps **after** that migration:
-
-1. Open [vercel.com/new](https://vercel.com/new) → Import [`saadxhammad/Torix-CRM`](https://github.com/saadxhammad/Torix-CRM).
-2. Framework: **Next.js**.
-3. Install command: `pnpm install` (or `npm install` if you switch lockfiles).
-4. Build command: `pnpm build` / `next build`.
-5. Add env vars for DB URL, storage, and auth secrets.
-6. Deploy → run migrations against the Postgres instance → smoke-test login, uploads, invoices/PDFs.
-
-Until that migration is done, use **Option A (Cloudflare)** or keep developing locally with:
+## 2. Local run
 
 ```sh
-pnpm install --frozen-lockfile
-cp dev.env.example .dev.vars
-pnpm exec wrangler d1 migrations apply DB --local --config wrangler.local.jsonc --persist-to .wrangler/state
+cp .env.example .env.local
+# fill values, especially TORIX_OWNER_EMAIL / TORIX_OWNER_PASSWORD
+pnpm install
 pnpm dev
 ```
 
-Open http://127.0.0.1:5173
+Open http://localhost:3000 → login with owner email/password.
+
+## 3. Deploy on Vercel
+
+1. [vercel.com/new](https://vercel.com/new) → import `saadxhammad/Torix-CRM`  
+2. Framework: Next.js  
+3. Add the same env vars from `.env.example`  
+4. Deploy  
+
+Staff: add their email under **Users and roles** in the app, then they sign in with `TORIX_STAFF_PASSWORD`.
+
+## What changed from Cloudflare
+
+| Before | Now |
+| --- | --- |
+| Cloudflare D1 | Supabase Postgres |
+| Cloudflare R2 | Supabase Storage |
+| ChatGPT Sites login | Simple email/password login |
+| Workers hosting | Vercel (Next.js) |

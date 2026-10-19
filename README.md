@@ -23,23 +23,19 @@ Bank feeds, biometric devices, campaign accounts, payment gateways and outbound 
 
 ## Local React app (this folder)
 
-This is already a **React 19** app (Vinext/Next App Router + Vite + TypeScript + Cloudflare D1/R2).
+**Stack now:** Next.js + React 19 + **Supabase** (Postgres + Storage) — deploy on Vercel.
 
 ```sh
-pnpm install --frozen-lockfile
-cp dev.env.example .dev.vars
-pnpm exec wrangler d1 migrations apply DB --local --config wrangler.local.jsonc --persist-to .wrangler/state
+pnpm install
+cp .env.example .env.local
+# 1) Create Supabase project
+# 2) Run supabase/schema.sql in SQL Editor
+# 3) Create private storage bucket: torix-files
+# 4) Fill .env.local
 pnpm dev
 ```
 
-Open [http://127.0.0.1:5173](http://127.0.0.1:5173). First visit redirects to local sign-in (`seedy@sites.test` from `.dev.vars`).
+Open [http://localhost:3000](http://localhost:3000) and sign in with `TORIX_OWNER_EMAIL` / `TORIX_OWNER_PASSWORD`.
 
-Checks:
+Full steps: [`DEPLOY.md`](./DEPLOY.md).
 
-```sh
-node --experimental-vm-modules --test tests/*.test.mjs
-pnpm exec tsc --noEmit
-pnpm build
-```
-
-See `DEVELOPER_HANDOVER.md` for deploy paths and `AUTOMATION.md` for the maintenance writer.

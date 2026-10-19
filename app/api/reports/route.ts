@@ -1,3 +1,4 @@
+export const runtime = "nodejs";
 import {context} from '@/lib/server';
 import {reports} from '@/lib/reports.mjs';
 export const dynamic='force-dynamic';

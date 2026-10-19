@@ -1,12 +1,14 @@
-import {env} from 'cloudflare:workers';
 import {getChatGPTUser} from '@/app/chatgpt-auth';
+import {env} from './runtime-env';
+import {createDatabase, type SqlStatement} from './sql';
+import {createBucket} from './storage';
 import {DEFAULT_SETTINGS} from './modules.mjs';
 import {capabilities,can,recordAllowed,sanitizedRecord} from './access.mjs';
 import {validateFinancialState,summary,normalizedLines,cashCarrying,sumBalance} from './finance.mjs';
 export type Item={id:string,kind:string,data:any,archived?:boolean,sourceKey?:string|null,createdAt?:string,updatedAt?:string};
 export type Context={ws:string,mode:string,ownerId:string,user:any,access:any,revision:number,records:Item[],events:any[],audit:any[],settings:any};
-export const database=()=>{if(!env.DB)throw new Error('Database is unavailable.');return env.DB};
-export const bucket=()=>{if(!env.BUCKET)throw new Error('Document storage is unavailable.');return env.BUCKET};
+export const database=()=>createDatabase();
+export const bucket=()=>createBucket();
 export const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Karachi'}).format(new Date());
 export const clean=(v:unknown,n=500)=>String(v??'').trim().slice(0,n);
 export function validDate(v:string){return /^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v}
@@ -20,7 +22,7 @@ export async function context(mode='live',service=false):Promise<Context>{
  let company:any=await database().prepare('SELECT * FROM companies WHERE id=?').bind('torix-solutions').first();
  if(!company){
   if((!user||user.email.toLowerCase()!==ownerEmail)&&!(service&&env.TORIX_OWNER_ID))throw new Error('The company owner must initialize the workspace first.');
-  await database().prepare('INSERT OR IGNORE INTO companies (id,owner_id,created_at) VALUES (?,?,?)').bind('torix-solutions',user?.userId||env.TORIX_OWNER_ID,new Date().toISOString()).run();
+  await database().prepare('INSERT INTO companies (id,owner_id,created_at) VALUES (?,?,?) ON CONFLICT (id) DO NOTHING').bind('torix-solutions',user?.userId||env.TORIX_OWNER_ID,new Date().toISOString()).run();
   company=await database().prepare('SELECT * FROM companies WHERE id=?').bind('torix-solutions').first();
  }
  let access:any;
@@ -34,7 +36,7 @@ export async function context(mode='live',service=false):Promise<Context>{
  }
  const ws=company.owner_id+':'+mode;
  if(mode.startsWith('restored-')){const existing:any=await database().prepare('SELECT mode FROM workspaces WHERE id=?').bind(ws).first();if(!existing||existing.mode==='restore_pending')throw new Error('The restored workspace is not ready.');}
- await database().prepare('INSERT OR IGNORE INTO workspaces (id,user_id,mode,revision) VALUES (?,?,?,0)').bind(ws,company.owner_id,mode).run();
+ await database().prepare('INSERT INTO workspaces (id,user_id,mode,revision) VALUES (?,?,?,0) ON CONFLICT (id) DO NOTHING').bind(ws,company.owner_id,mode).run();
  const r=await database().batch([
  database().prepare('SELECT revision FROM workspaces WHERE id=?').bind(ws),
  database().prepare('SELECT * FROM records WHERE workspace_id=? ORDER BY created_at DESC').bind(ws),
@@ -73,7 +75,7 @@ export class Change {
   const exists=await db.prepare('SELECT id FROM operations WHERE id=? AND workspace_id=?').bind(op,c.ws).first();if(exists)return;
   if(!this.rows.size&&!this.newEvents.length)return;
   validateFinancialState(c.events);
-  const guard='EXISTS (SELECT 1 FROM workspaces WHERE id=? AND revision=?)',stmts:D1PreparedStatement[]=[],now=new Date().toISOString();
+  const guard='EXISTS (SELECT 1 FROM workspaces WHERE id=? AND revision=?)',stmts:SqlStatement[]=[],now=new Date().toISOString();
   for(const r of this.rows.values()){
    if(c.records.filter(x=>x.id===r.id).length!==1)throw new Error('Duplicate record ID.');
    const isExisting=await db.prepare('SELECT id FROM records WHERE id=? AND workspace_id=?').bind(r.id,c.ws).first();

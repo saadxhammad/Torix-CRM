@@ -1,3 +1,4 @@
+export const runtime = "nodejs";
 import {context,exposed,Change,database,record,clean,today,assertOrigin} from '@/lib/server';
 import {saveRecord,archiveRecord,approveOperational,memberAction,reference} from '@/lib/operations';
 import {postSimple,saveInvoice,issue,approveFinancial,postCredit,postExpenseOrBill,payBillAction,preparePayroll,updatePayroll,payrollAction,allocateCosts,periodAction,postTransfer,reconcile,nextNumber} from '@/lib/finance-actions';
@@ -16,7 +17,7 @@ export async function POST(request:Request){try{
  if(body.action==='restore'){const result=await restoreBackup(c,body.id);return json({...exposed(await context(result.mode)),restoredMode:result.mode});}
  const ch=new Change(c,body.action,requestId),input=body.data||{};
  if(body.action==='seed'){
-  requireCap(c.access,'settings');if(mode!=='demo')throw new Error('Sample data belongs only in the sample workspace.');if(c.records.some(r=>r.kind==='client')||c.events.length)return json(exposed(c));const s=sampleWorkspace(c.ws,new Date().toISOString());for(const r of s.records)ch.put(r.kind,r.data,r.id);for(const e of s.events){ch.newEvents.push({...e,meta:{currency:'PKR'}});ch.c.events.push({...e,meta:{currency:'PKR'}});}ch.detail='Created fictional sample company';
+  throw new Error('Sample workspace seeding is not enabled in this deployment.');
  }else if(body.action==='save'){
   if(body.kind==='invoice')saveInvoice(ch,input,body.id);
   else if(body.kind==='payroll'){if(body.id)updatePayroll(ch,body.id,input);else preparePayroll(ch,input);}
