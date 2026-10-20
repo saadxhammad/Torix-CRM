@@ -148,6 +148,7 @@ async function main() {
           stage: "New",
           value: 1000000,
           currency: "PKR",
+          nextFollowup: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10),
           note: "Created by smoke-test.mjs",
         },
       },
