@@ -15,7 +15,7 @@ const blank:State={records:[],events:[],audit:[],access:{role:'',caps:[],departm
 export const localDate=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Karachi'}).format(new Date());
 export const money=(n:number,currency='PKR')=>formatMoney(n||0,currency);
 export function Badge({value}:{value:any}){return <span className={'badge '+(['Approved','Posted','Active','Done','Issued','Accepted','Available','Receiving data','Won'].includes(value)?'green':['Rejected','Lost','Cancelled','Revoked','Overdue'].includes(value)?'red':'muted')}>{String(value||'Draft')}</span>}
-export function Empty({title,body}:{title:string,body?:string}){return <div className="empty-state"><FileText size={27}/><h3>{title}</h3>{body&&<p>{body}</p>}</div>}
+export function Empty({title,body}:{title:string,body?:string}){return <div className="empty-state" style={{padding:'48px 32px',textAlign:'center'}}><FileText size={27}/><h3>{title}</h3>{body&&<p>{body}</p>}</div>}
 export function Initials({name}:{name:string}){return <span className="initials">{name.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase()}</span>}
 export default function Workspace({ownerName}:{ownerName:string}){
  const [state,setState]=useState<State>(blank),[mode,setMode]=useState('live'),[page,setPage]=useState('Dashboard'),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[toast,setToast]=useState(''),[query,setQuery]=useState(''),[department,setDepartment]=useState('All departments'),[month,setMonth]=useState(localDate().slice(0,7)),[mobile,setMobile]=useState(false),[modal,setModal]=useState<any>(null);const dialog=useRef<HTMLDialogElement>(null),a=state.access,permitted=(cap:string)=>can(a,cap),owner=permitted('*'),cfg:any=(CATALOG as any)[page];
