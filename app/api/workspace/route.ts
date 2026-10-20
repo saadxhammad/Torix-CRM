@@ -8,7 +8,30 @@ import {parseMoney} from '@/lib/domain.mjs';
 import {sampleWorkspace} from '@/lib/seed.mjs';
 export const dynamic='force-dynamic';
 const json=(v:unknown,status=200)=>Response.json(v,{status,headers:{'Cache-Control':'no-store'}});
-export async function GET(request:Request){try{const mode=new URL(request.url).searchParams.get('mode')||'live',c=await context(mode),out:any=exposed(c,new URL(request.url).searchParams.get('month')||'');out.alerts=alerts(c).filter(a=>{const r=record(c,a.id);return r&&recordAllowed(c.access,r,c.records)});if(can(c.access,'settings')){const rows=await database().prepare('SELECT id,email,role,departments,grants,employee_id,active FROM company_members WHERE company_id=?').bind('torix-solutions').all();out.members=rows.results.map((m:any)=>({...m,departments:JSON.parse(m.departments),grants:JSON.parse(m.grants)}));out.workspaces=(await database().prepare("SELECT mode FROM workspaces WHERE user_id=? AND mode LIKE 'restored-%'").bind(c.ownerId).all()).results.map((r:any)=>r.mode);}return json(out)}catch(e){const error=e instanceof Error?e.message:'Could not load workspace.';return json({error},/Sign in/.test(error)?401:/access|owner|granted/i.test(error)?403:400)}}
+export async function GET(request:Request){try{
+ const mode=new URL(request.url).searchParams.get('mode')||'live';
+ let c=await context(mode);
+ // Auto-load demo data once for an empty owner workspace (internal preview).
+ if(can(c.access,'*')&&!c.records.some(r=>!r.archived&&['client','staff','order','task','lead','invoice'].includes(r.kind))){
+  try{
+   const ch=new Change(c,'seed',crypto.randomUUID());
+   const s=sampleWorkspace(new Date().toISOString());
+   for(const r of s.records)ch.put(r.kind,r.data,r.id);
+   for(const e of s.events){ch.newEvents.push({...e});ch.c.events.push({...e});}
+   ch.detail='Auto-loaded Torix sample company data';
+   await ch.commit();
+   c=await context(mode);
+  }catch{/* keep empty workspace if seed fails */}
+ }
+ const out:any=exposed(c,new URL(request.url).searchParams.get('month')||'');
+ out.alerts=alerts(c).filter(a=>{const r=record(c,a.id);return r&&recordAllowed(c.access,r,c.records)});
+ if(can(c.access,'settings')){
+  const rows=await database().prepare('SELECT id,email,role,departments,grants,employee_id,active FROM company_members WHERE company_id=?').bind('torix-solutions').all();
+  out.members=rows.results.map((m:any)=>({...m,departments:JSON.parse(m.departments),grants:JSON.parse(m.grants)}));
+  out.workspaces=(await database().prepare("SELECT mode FROM workspaces WHERE user_id=? AND mode LIKE 'restored-%'").bind(c.ownerId).all()).results.map((r:any)=>r.mode);
+ }
+ return json(out);
+}catch(e){const error=e instanceof Error?e.message:'Could not load workspace.';return json({error},/Sign in/.test(error)?401:/access|owner|granted/i.test(error)?403:400)}}
 export async function POST(request:Request){try{
  assertOrigin(request);const text=await request.text();if(text.length>1600000)return json({error:'Request is too large.'},413);const body=JSON.parse(text),mode=body.mode||'live',c=await context(mode),requestId=clean(body.requestId||crypto.randomUUID(),120);
  const duplicate=await database().prepare('SELECT id FROM operations WHERE id=? AND workspace_id=?').bind(c.ws+':'+requestId,c.ws).first();if(duplicate)return json(exposed(c));
