@@ -5,6 +5,7 @@ import {postSimple,saveInvoice,issue,approveFinancial,postCredit,postExpenseOrBi
 import {saveCostSchedule,postScheduledCost,generateCycle,createBackup,restoreBackup,importPreview,commitImport,alerts} from '@/lib/maintenance';
 import {can,requireCap,recordAllowed} from '@/lib/access.mjs';
 import {parseMoney} from '@/lib/domain.mjs';
+import {sampleWorkspace} from '@/lib/seed.mjs';
 export const dynamic='force-dynamic';
 const json=(v:unknown,status=200)=>Response.json(v,{status,headers:{'Cache-Control':'no-store'}});
 export async function GET(request:Request){try{const mode=new URL(request.url).searchParams.get('mode')||'live',c=await context(mode),out:any=exposed(c,new URL(request.url).searchParams.get('month')||'');out.alerts=alerts(c).filter(a=>{const r=record(c,a.id);return r&&recordAllowed(c.access,r,c.records)});if(can(c.access,'settings')){const rows=await database().prepare('SELECT id,email,role,departments,grants,employee_id,active FROM company_members WHERE company_id=?').bind('torix-solutions').all();out.members=rows.results.map((m:any)=>({...m,departments:JSON.parse(m.departments),grants:JSON.parse(m.grants)}));out.workspaces=(await database().prepare("SELECT mode FROM workspaces WHERE user_id=? AND mode LIKE 'restored-%'").bind(c.ownerId).all()).results.map((r:any)=>r.mode);}return json(out)}catch(e){const error=e instanceof Error?e.message:'Could not load workspace.';return json({error},/Sign in/.test(error)?401:/access|owner|granted/i.test(error)?403:400)}}
@@ -17,7 +18,12 @@ export async function POST(request:Request){try{
  if(body.action==='restore'){const result=await restoreBackup(c,body.id);return json({...exposed(await context(result.mode)),restoredMode:result.mode});}
  const ch=new Change(c,body.action,requestId),input=body.data||{};
  if(body.action==='seed'){
-  throw new Error('Sample workspace seeding is not enabled in this deployment.');
+  requireCap(c.access,'*');
+  if(c.records.some(r=>!r.archived&&r.kind!=='settings'))throw new Error('Sample data can only be loaded into an empty workspace. Archive or clear demo records first.');
+  const s=sampleWorkspace(new Date().toISOString());
+  for(const r of s.records)ch.put(r.kind,r.data,r.id);
+  for(const e of s.events){ch.newEvents.push({...e});ch.c.events.push({...e});}
+  ch.detail='Loaded Torix sample company data';
  }else if(body.action==='save'){
   if(body.kind==='invoice')saveInvoice(ch,input,body.id);
   else if(body.kind==='payroll'){if(body.id)updatePayroll(ch,body.id,input);else preparePayroll(ch,input);}
