@@ -58,3 +58,6 @@ next-env.d.ts
 # Local Worker secrets
 .dev.vars
 .dev.vars.*
+tests/e2e/.auth.json
+qa/playwright-report/
+test-results/

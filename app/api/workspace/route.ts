@@ -21,7 +21,7 @@ export async function GET(request:Request){try{
    ch.detail='Auto-loaded Torix sample company data';
    await ch.commit();
    c=await context(mode);
-  }catch{/* keep empty workspace if seed fails */}
+  }catch(e){console.error('[workspace] sample data seed failed:',e)}
  }
  const out:any=exposed(c,new URL(request.url).searchParams.get('month')||'');
  out.alerts=alerts(c).filter(a=>{const r=record(c,a.id);return r&&recordAllowed(c.access,r,c.records)});

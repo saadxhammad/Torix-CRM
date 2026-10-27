@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./shell.css";
 
 export const metadata: Metadata = {
   title: "Torix Solutions | Company workspace",

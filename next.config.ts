@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // The dev badge sits on top of the sidebar footer and ends up in QA screenshots.
+  devIndicators: false,
 };
 
 export default nextConfig;
