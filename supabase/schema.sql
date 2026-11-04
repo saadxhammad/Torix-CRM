@@ -67,6 +67,7 @@ create table if not exists company_members (
   departments text not null,
   grants text not null,
   employee_id text,
+  password_hash text,
   active integer not null default 1,
   updated_at text not null
 );

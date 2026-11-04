@@ -26,7 +26,11 @@ export async function context(mode='live',service=false):Promise<Context>{
   company=await database().prepare('SELECT * FROM companies WHERE id=?').bind('torix-solutions').first();
  }
  let access:any;
- if(service||user?.userId===company.owner_id){access={role:'Owner',departments:[],grants:[],employeeId:'',caps:['*']};}
+ if(service||user?.userId===company.owner_id){
+  // Owner always has full caps; employeeId comes from an optional company_members link for attendance/leave portal.
+  const ownerMember:any=user?await database().prepare('SELECT employee_id FROM company_members WHERE company_id=? AND email=? AND active=1').bind('torix-solutions',user.email.toLowerCase()).first():null;
+  access={role:'Owner',departments:[],grants:[],employeeId:ownerMember?.employee_id||'',caps:['*']};
+ }
  else{
   const member:any=await database().prepare('SELECT * FROM company_members WHERE company_id=? AND email=? AND active=1').bind('torix-solutions',user!.email.toLowerCase()).first();
   if(!member||member.user_id&&member.user_id!==user!.userId)throw new Error('Your account has not been granted company access.');

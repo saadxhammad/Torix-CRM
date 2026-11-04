@@ -92,6 +92,7 @@ export const members = pgTable(
     departments: text("departments").notNull(),
     grants: text("grants").notNull(),
     employeeId: text("employee_id"),
+    passwordHash: text("password_hash"),
     active: integer("active").notNull().default(1),
     updatedAt: text("updated_at").notNull(),
   },

@@ -102,7 +102,7 @@ await save("settings", {
   bankDetails: "Meezan Bank, Torix Solutions, A/C 0123-4567890", defaultLeaveDays: 14,
 }, "settings");
 
-const dayShift = await save("shift", { name: "Day shift", startTime: "09:00", endTime: "18:00", breakMinutes: 60, graceMinutes: 15 });
+const dayShift = await save("shift", { name: "Night office", startTime: "19:00", endTime: "04:00", breakMinutes: 45, graceMinutes: 15 });
 await save("shift", { name: "Late shift (US overlap)", startTime: "14:00", endTime: "23:00", breakMinutes: 60, graceMinutes: 10 });
 for (const [name, date] of [["Iqbal Day", "2026-11-09"], ["Quaid-e-Azam Day", "2026-12-25"], ["Kashmir Solidarity Day", "2027-02-05"]]) {
   await save("holiday", { name, date });

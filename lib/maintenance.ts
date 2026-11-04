@@ -63,6 +63,9 @@ export function alerts(c:Context){const result:any[]=[],now=today();for(const r 
   if(r.kind==='lead'&&r.data.nextFollowup&&r.data.nextFollowup<=now&&!['Won','Lost'].includes(r.data.stage))result.push({id:r.id,type:'Follow up',title:r.data.name,date:r.data.nextFollowup});
   if(['task','milestone','invoice','bill','subscription','contract'].includes(r.kind)){const due=r.data.due||r.data.nextDate;if(r.kind==='invoice'&&sumBalance(c.events,'receivable',{ref:r.id,currency:r.data.currency})===0&&r.data.status==='Issued')continue;if(r.kind==='bill'&&r.data.status==='Posted'&&sumBalance(c.events,'payable',{ref:r.id,currency:r.data.currency})===0)continue;if(due&&due<=now&&!['Done','Completed','Paid','Cancelled','Rejected'].includes(r.data.status))result.push({id:r.id,type:r.kind,title:r.data.name||r.data.number,date:due});}
   if(['Submitted','Approved'].includes(r.data.status)&&['invoice','bill','expense','payroll','leave','attendance'].includes(r.kind))result.push({id:r.id,type:'Approval',title:r.data.name||r.kind,date:r.data.date||r.data.month||now});
+  if(r.kind==='attendance'&&(r.data.lateMinutes>0)&&!r.data.lateConverted&&['Submitted','Approved','In progress'].includes(r.data.status))result.push({id:r.id,type:'Late',title:(r.data.name||'Attendance')+' · '+r.data.lateMinutes+'m late',date:r.data.date||now});
+  if(r.kind==='attendance'&&(r.data.classification==='Exception'||(r.data.state==='On Break'&&r.data.status==='Submitted')))result.push({id:r.id,type:'Exception',title:r.data.name||'Attendance exception',date:r.data.date||now});
+  if(r.kind==='leavegrant'&&r.data.expiryDate&&r.data.expiryDate>=now&&r.data.expiryDate<=new Date(Date.parse(now)+7*86400000).toISOString().slice(0,10)&&r.data.status==='Active')result.push({id:r.id,type:'Grant expiry',title:`${r.data.type} grant expires ${r.data.expiryDate}`,date:r.data.expiryDate});
  }return result;
 }
 export async function runMaintenance(mode='live'){

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/runtime-env";
-import { setSessionCookie } from "@/lib/session";
+import { homePathForRole, setSessionCookie } from "@/lib/session";
 import { createDatabase } from "@/lib/sql";
+import { ensureMemberPasswordColumn, verifyPassword } from "@/lib/passwords";
 
 export const runtime = "nodejs";
 
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
 
     let userId = "";
     let displayName = email;
+    let role = "Staff";
 
     if (email === ownerEmail) {
       if (password !== env.TORIX_OWNER_PASSWORD) {
@@ -33,14 +35,13 @@ export async function POST(request: Request) {
       }
       userId = env.TORIX_OWNER_ID;
       displayName = "Owner";
+      role = "Owner";
     } else {
-      if (!env.TORIX_STAFF_PASSWORD || password !== env.TORIX_STAFF_PASSWORD) {
-        return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
-      }
       const db = createDatabase();
+      await ensureMemberPasswordColumn(db);
       const member = await db
         .prepare(
-          "SELECT id, email, user_id, role, active FROM company_members WHERE company_id=? AND email=? AND active=1",
+          "SELECT id, email, user_id, role, active, password_hash FROM company_members WHERE company_id=? AND email=? AND active=1",
         )
         .bind("torix-solutions", email)
         .first();
@@ -50,8 +51,21 @@ export async function POST(request: Request) {
           { status: 403 },
         );
       }
+
+      let ok = false;
+      if (member.password_hash) {
+        ok = verifyPassword(password, member.password_hash);
+      } else {
+        // Legacy: shared company staff password until Admin sets a personal one.
+        ok = !!env.TORIX_STAFF_PASSWORD && password === env.TORIX_STAFF_PASSWORD;
+      }
+      if (!ok) {
+        return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+      }
+
       userId = member.user_id || `member-${member.id}`;
-      displayName = member.role || email;
+      role = String(member.role || "Staff");
+      displayName = email.split("@")[0] || role || email;
     }
 
     await setSessionCookie({
@@ -59,9 +73,11 @@ export async function POST(request: Request) {
       email,
       displayName,
       fullName: displayName,
+      role,
     });
 
-    return NextResponse.json({ ok: true });
+    const redirectTo = homePathForRole(role);
+    return NextResponse.json({ ok: true, role, redirectTo });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Login failed." },

@@ -48,6 +48,92 @@ function cookieJar(setCookie) {
   return setCookie.map((c) => c.split(";")[0]).join("; ");
 }
 
+async function seedViaCrud(cookie) {
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const monthStart = new Date().toISOString().slice(0, 7) + "-01";
+
+  async function save(kind, data) {
+    const { res, json } = await req("/api/workspace", {
+      method: "POST",
+      cookie,
+      body: { action: "save", kind, mode: "live", requestId: crypto.randomUUID(), data },
+    });
+    if (!res.ok || json?.error) throw new Error(`${kind}: ${json?.error || res.status}`);
+    return json;
+  }
+
+  try {
+    let ws = await save("client", {
+      name: "Smoke Client Co",
+      contact: "Smoke Contact",
+      email: "client@smoke.test",
+      phone: "03001234567",
+      department: "Marketing",
+      status: "Active",
+    });
+    const clientId = ws.records.find((r) => r.kind === "client" && r.data?.name === "Smoke Client Co")?.id;
+    ws = await save("staff", {
+      name: "Smoke Staff",
+      email: "staff@smoke.test",
+      department: "Marketing",
+      role: "Specialist",
+      status: "Active",
+    });
+    const staffId = ws.records.find((r) => r.kind === "staff" && r.data?.name === "Smoke Staff")?.id;
+    ws = await save("order", {
+      name: "Smoke Order",
+      clientId,
+      department: "Marketing",
+      amount: "10000.00",
+      currency: "PKR",
+      date: monthStart,
+      due: tomorrow,
+      status: "Draft",
+      model: "Fixed project",
+      scope: "Smoke scope",
+    });
+    const orderId = ws.records.find((r) => r.kind === "order" && r.data?.name === "Smoke Order")?.id;
+    ws = await save("task", {
+      name: "Smoke Task",
+      orderId,
+      assignee: staffId,
+      department: "Marketing",
+      due: tomorrow,
+      status: "In progress",
+    });
+    if (!ws.records.some((r) => r.kind === "lead" && !r.archived)) {
+      ws = await save("lead", {
+        name: "Smoke Lead",
+        contact: "Smoke Bot",
+        email: "lead@smoke.test",
+        department: "Marketing",
+        stage: "New",
+        value: "10000.00",
+        currency: "PKR",
+        nextFollowup: tomorrow,
+        note: "CRUD seed fallback",
+      });
+    }
+    ws = await save("invoice", {
+      clientId,
+      currency: "PKR",
+      rate: 1,
+      date: monthStart,
+      due: tomorrow,
+      lines: [{ orderId, description: "Smoke retainer", net: "4500.00", taxPercent: 0 }],
+    });
+    const counts = Object.fromEntries(
+      ["client", "staff", "order", "task", "lead", "invoice"].map((k) => [
+        k,
+        ws.records.filter((r) => r.kind === k && !r.archived).length,
+      ]),
+    );
+    return { ok: true, workspace: ws, detail: JSON.stringify(counts) };
+  } catch (e) {
+    return { ok: false, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main() {
   console.log(`Smoke testing ${base}\n`);
 
@@ -106,7 +192,7 @@ async function main() {
     } else fail("GET workspace", `${res.status} ${JSON.stringify(json)?.slice(0, 200)}`);
   }
 
-  // Ensure seed data
+  // Ensure sample data (seed endpoint, else create via CRUD for older deploys)
   {
     const hasClients = workspace?.records?.some((r) => r.kind === "client" && !r.archived);
     if (!hasClients) {
@@ -118,7 +204,15 @@ async function main() {
       if (res.ok && json?.records?.some((r) => r.kind === "client")) {
         workspace = json;
         ok("Seed sample data", `${json.records.filter((r) => r.kind === "client").length} clients`);
-      } else fail("Seed sample data", `${res.status} ${JSON.stringify(json)?.slice(0, 300)}`);
+      } else {
+        const seeded = await seedViaCrud(cookie);
+        if (seeded.ok) {
+          workspace = seeded.workspace;
+          ok("Seed sample data (CRUD fallback)", seeded.detail);
+        } else {
+          fail("Seed sample data", `${res.status} ${JSON.stringify(json)?.slice(0, 200)} | fallback: ${seeded.detail}`);
+        }
+      }
     } else {
       ok("Seed sample data already present", `${workspace.records.filter((r) => r.kind === "client").length} clients`);
     }
@@ -187,6 +281,20 @@ async function main() {
     [200, 307, 302].includes(res.status)
       ? ok("GET / with session", String(res.status))
       : fail("GET / with session", String(res.status));
+  }
+
+  // People export + leave balances payload
+  {
+    const { res, text } = await req("/api/people-export?type=attendance&mode=live", { cookie });
+    res.ok && text.includes("employeeId")
+      ? ok("People CSV export", String(res.status))
+      : fail("People CSV export", `${res.status} ${String(text).slice(0, 120)}`);
+  }
+  {
+    const balances = workspace?.leaveBalances;
+    balances && typeof balances === "object"
+      ? ok("Leave balances on workspace", Object.keys(balances).filter((k) => k !== "liveAttendance").join(","))
+      : fail("Leave balances on workspace", "missing leaveBalances");
   }
 
   summarize();
